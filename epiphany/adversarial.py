@@ -9,6 +9,8 @@ import torch.optim as optim
 import argparse
 from utils import *
 import time
+from data_loader_10kb import *
+from model_10kb import *
 
 print(torch.__version__)
 
@@ -31,12 +33,12 @@ def main():
     args = parser.parse_args()
 
     
-    if args.high_res:
-        from data_loader_5kb import *
-        from model_5kb import *
-    else:
-        from data_loader_10kb import *
-        from model_10kb import *
+    # if args.high_res:
+    #     from data_loader_5kb import *
+    #     from model_5kb import *
+    # else:
+    #     from data_loader_10kb import *
+    #     from model_10kb import *
     
     if args.wandb:
         import wandb
@@ -52,12 +54,15 @@ def main():
     TRAIN_SEQ_LENGTH = 200 
     TEST_SEQ_LENGTH = 200 
 
-    torch.cuda.set_device(int(args.gpu))
+    #torch.cuda.set_device(int(args.gpu))
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
     torch.manual_seed(0)    
-    model = Net(1, 5, int(args.window_size)).cuda()
-    disc = Disc().cuda()
+    # model = Net(1, 5, int(args.window_size)).cuda()
+    # disc = Disc().cuda()
+    model = Net(1, 5, int(args.window_size)).to(device)
+    disc = Disc().to(device)
     if args.wandb:
         wandb.watch(model, log='all')
 
@@ -82,8 +87,8 @@ def main():
     train_set = Chip2HiCDataset(seq_length=TRAIN_SEQ_LENGTH, window_size=int(args.window_size), chroms=train_chroms, mode='train') 
     test_set = Chip2HiCDataset(seq_length=TEST_SEQ_LENGTH, window_size=int(args.window_size), chroms=test_chroms, mode='test') 
 
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=4)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=4)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=1, shuffle=True, num_workers=0)
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=1, shuffle=False, num_workers=0)
 
     train_log = os.path.join(LOG_PATH, 'train_log.txt')
     test_log = os.path.join(LOG_PATH, 'test_log.txt')
@@ -119,7 +124,7 @@ def main():
             if np.linalg.norm(test_label) < 1e-8:
                 continue
             
-            test_data, test_label = torch.Tensor(test_data[0]).cuda(), torch.Tensor(test_label).cuda()
+            test_data, test_label = torch.Tensor(test_data[0]).to(device), torch.Tensor(test_label).to(device)
 
             with torch.no_grad():
                 pred, hidden = model(test_data, hidden_state=None,seq_length=TEST_SEQ_LENGTH)
@@ -154,8 +159,8 @@ def main():
                 continue
 
             hidden = None
-            label = torch.Tensor(np.squeeze(label)).cuda()
-            data = data[0].cuda()
+            label = torch.Tensor(np.squeeze(label)).to(device)
+            data = data[0].to(device)
             optimizer.zero_grad()
                   
             output, hidden = model(data,seq_length=TRAIN_SEQ_LENGTH)
@@ -166,7 +171,7 @@ def main():
             # Train generator
             mse_loss = model.loss(output, label, seq_length=TRAIN_SEQ_LENGTH)
             disc_out = disc(output.view(1,1,output.shape[0], output.shape[1]))
-            adv_loss = F.binary_cross_entropy_with_logits(disc_out.view(1), torch.Tensor([1]).cuda()) # how close is disc pred to 1      
+            adv_loss = F.binary_cross_entropy_with_logits(disc_out.view(1), torch.Tensor([1]).to(device)) # how close is disc pred to 1      
             loss = (LAMBDA)*mse_loss + (1 - LAMBDA)*adv_loss
 
             loss.backward()
@@ -179,7 +184,7 @@ def main():
             true_pred = disc(label.view(1,1,label.shape[0], label.shape[1]))
             fake_pred = disc(output.detach().view(1,1,output.shape[0], output.shape[1]))   
             disc_preds = torch.cat((true_pred, fake_pred), dim=0)  
-            disc_loss = disc.loss(disc_preds, torch.Tensor([1, 0]).view(2,1).cuda())
+            disc_loss = disc.loss(disc_preds, torch.Tensor([1, 0]).view(2,1).to(device))
             disc_loss.backward()
 
             disc_preds_train.append(torch.sigmoid(true_pred).item())

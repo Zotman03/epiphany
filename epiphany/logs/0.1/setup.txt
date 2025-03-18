@@ -1,0 +1,21 @@
+
+Version: 0.1
+Batch Size: 1
+Initial Learning Rate: 1e-4
+Comments: 
+Version: 0.1
+Batch Size: 1
+Initial Learning Rate: 1e-4
+Comments: 
+Version: 0.1
+Batch Size: 1
+Initial Learning Rate: 1e-4
+Comments: 
+Version: 0.1
+Batch Size: 1
+Initial Learning Rate: 1e-4
+Comments: 
+Version: 0.1
+Batch Size: 1
+Initial Learning Rate: 1e-4
+Comments: 
